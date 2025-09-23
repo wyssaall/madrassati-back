@@ -17,3 +17,4 @@ Auth: JWT (students, teachers, parents)
 - POST `/api/auth/login`
 - POST `/api/auth/logout`
 - GET `/api/auth/me` (Authorization: Bearer <token>)
+

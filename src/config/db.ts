@@ -8,3 +8,4 @@ export async function connectToDatabase(mongoUri: string): Promise<void> {
   await mongoose.connect(mongoUri);
   console.log("✅ Connected to MongoDB");
 }
+
