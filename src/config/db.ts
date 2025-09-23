@@ -17,3 +17,4 @@ export async function connectToDatabase(mongoUri: string): Promise<void> {
     process.exit(1);
   }
 }
+

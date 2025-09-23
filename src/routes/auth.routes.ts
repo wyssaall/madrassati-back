@@ -19,6 +19,19 @@ function signToken(userId: string, role: "student" | "teacher" | "parent") {
   return jwt.sign({ userId, role }, secret, options);
 }
 
+function roleToRedirectPath(role: "student" | "teacher" | "parent"): string {
+  switch (role) {
+    case "student":
+      return "/student";
+    case "teacher":
+      return "/teacher";
+    case "parent":
+      return "/parent";
+    default:
+      return "/";
+  }
+}
+
 router.post("/register", async (req: Request, res: Response) => {
   try {
     const {
@@ -65,16 +78,18 @@ router.post("/register", async (req: Request, res: Response) => {
       gender,
     });
     const token = signToken(user.id, user.role);
+    const redirectPath = roleToRedirectPath(user.role);
     return res.status(201).json({
       message: "Registered successfully",
       token,
+      redirectPath,
       user: {
         id: user.id,
-        fullName: user.fullName,
+        fullName: user.fullName as any,
         email: user.email,
         role: user.role,
-        phoneNumber: user.phoneNumber,
-        gender: user.gender,
+        phoneNumber: (user as any).phoneNumber,
+        gender: (user as any).gender,
       },
     });
   } catch (err) {
@@ -97,14 +112,18 @@ router.post("/login", async (req: Request, res: Response) => {
     if (!ok) return res.status(401).json({ message: "Invalid credentials" });
 
     const token = signToken(user.id, user.role as any);
+    const redirectPath = roleToRedirectPath(user.role as any);
     return res.json({
       message: "Logged in",
       token,
+      redirectPath,
       user: {
         id: user.id,
         fullName: (user as any).fullName,
         email: user.email,
         role: user.role,
+        phoneNumber: (user as any).phoneNumber,
+        gender: (user as any).gender,
       },
     });
   } catch (err) {
