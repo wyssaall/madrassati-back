@@ -1,23 +1,35 @@
 import mongoose, { Document, Schema } from "mongoose";
-import bcrypt from "bcryptjs";
 
-export type UserRole = "student" | "teacher" | "parent";
-export type Gender = "male" | "female";
+export type UserRole = "student" | "parent" | "teacher" | "admin";
+export type Gender = "M" | "F" | "O";
+
+export interface IUserProfile {
+  fullName?: string;
+  phone?: string;
+  avatarUrl?: string;
+  gender?: Gender;
+}
 
 export interface IUser extends Document {
-  fullName: string;
   email: string;
-  password: string;
+  passwordHash: string;
   role: UserRole;
-  phoneNumber?: string;
-  gender?: Gender;
+  profile: IUserProfile;
+  linkedId?: string;
+  lastLoginAt?: Date;
   createdAt: Date;
-  comparePassword(candidate: string): Promise<boolean>;
+  updatedAt: Date;
 }
+
+const UserProfileSchema = new Schema<IUserProfile>({
+  fullName: { type: String, trim: true },
+  phone: { type: String, trim: true },
+  avatarUrl: { type: String, trim: true },
+  gender: { type: String, enum: ["M", "F", "O"], trim: true },
+}, { _id: false });
 
 const UserSchema = new Schema<IUser>(
   {
-    fullName: { type: String, required: true, trim: true },
     email: {
       type: String,
       required: true,
@@ -25,29 +37,35 @@ const UserSchema = new Schema<IUser>(
       lowercase: true,
       trim: true,
     },
-    password: { type: String, required: true, minlength: 6, select: false },
+    passwordHash: { 
+      type: String, 
+      required: true, 
+      select: false 
+    },
     role: {
       type: String,
-      enum: ["student", "teacher", "parent"],
+      enum: ["student", "parent", "teacher", "admin"],
+      default: "student",
       required: true,
     },
-    phoneNumber: { type: String, trim: true },
-    gender: { type: String, enum: ["male", "female"], trim: true },
+    profile: {
+      type: UserProfileSchema,
+      default: {}
+    },
+    linkedId: { 
+      type: String, 
+      trim: true 
+    },
+    lastLoginAt: { 
+      type: Date 
+    },
   },
-  { timestamps: { createdAt: true, updatedAt: false } }
+  { timestamps: true }
 );
 
-UserSchema.pre("save", async function (next) {
-  const user = this as IUser;
-  if (!user.isModified("password")) return next();
-  const salt = await bcrypt.genSalt(10);
-  user.password = await bcrypt.hash(user.password, salt);
-  next();
-});
-
-UserSchema.methods.comparePassword = function (candidate: string) {
-  const user = this as IUser;
-  return bcrypt.compare(candidate, user.password);
-};
+// Index pour optimiser les requêtes
+UserSchema.index({ email: 1 });
+UserSchema.index({ role: 1 });
+UserSchema.index({ linkedId: 1 });
 
 export const User = mongoose.model<IUser>("User", UserSchema);
