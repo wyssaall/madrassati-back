@@ -1,20 +1,15 @@
 import mongoose from "mongoose";
 
-export async function connectToDatabase(mongoUri: string): Promise<void> {
-  if (!mongoUri) {
-    throw new Error("MONGODB_URI is not defined");
-  }
-
+export async function connectToDatabase(mongoUri: string) {
   try {
-    mongoose.set("strictQuery", true);
-    await mongoose.connect(mongoUri);
-
-    console.log("✅ Connected to MongoDB");
-    console.log("📂 Database:", mongoose.connection.name);
-    console.log("🌍 Host:", mongoose.connection.host);
+    const conn = await mongoose.connect(mongoUri, {
+      dbName: "madrassati",
+    });
+    console.log(`✅ Connected to MongoDB`);
+    console.log(`📂 Database: ${conn.connection.name}`);
+    console.log(`🌍 Host: ${conn.connection.host}`);
   } catch (error) {
-    console.error("❌ Failed to connect to MongoDB:", error);
+    console.error("❌ Error connecting to MongoDB:", (error as Error).message);
     process.exit(1);
   }
 }
-
