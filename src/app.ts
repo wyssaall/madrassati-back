@@ -11,6 +11,8 @@ import authRouter from './routes/auth.routes.js';
 import studentRouter from './routes/student.routes.js';
 import parentRouter from './routes/parent.routes.js';
 import teacherRouter from './routes/teacher.routes.js';
+import testRouter from './routes/test.routes.js';
+import debugRouter from './routes/debug.routes.js';
 
 // Import middleware
 import { errorHandler, notFoundHandler } from './middlewares/error.middleware.js';
@@ -61,7 +63,9 @@ app.get('/health', (req, res) => {
 
 // Mount routes
 app.use('/api/auth', authRouter);
-app.use('/student', studentRouter);
+app.use('/api/test', testRouter);
+app.use('/api/debug', debugRouter);
+app.use('/api/student', studentRouter);
 app.use('/parent', parentRouter);
 app.use('/teacher', teacherRouter);
 
