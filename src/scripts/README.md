@@ -34,7 +34,7 @@ const STUDENT_ID = new mongoose.Types.ObjectId('YOUR_STUDENT_ID_HERE');
 From the `madrassati-back` directory, run:
 
 ```bash
-npx ts-node src/scripts/populateSampleData.ts
+npx tsx src/scripts/populateSampleData.ts
 ```
 
 Or if you prefer to compile first:

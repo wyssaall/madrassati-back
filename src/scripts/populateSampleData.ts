@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import dotenv from 'dotenv';
 import Student from '../models/Student.model.js';
 import ClassSchedule from '../models/ClassSchedule.model.js';
 import Grade from '../models/Grade.model.js';
@@ -6,6 +7,10 @@ import Exam from '../models/Exam.model.js';
 import Test from '../models/Test.model.js';
 import Homework from '../models/Homework.model.js';
 import Announcement from '../models/Announcement.model.js';
+import { connectToDatabase } from '../config/db.js';
+
+// Load environment variables
+dotenv.config();
 
 /**
  * Sample data population script
@@ -14,19 +19,18 @@ import Announcement from '../models/Announcement.model.js';
  * Usage:
  * 1. Make sure MongoDB is running
  * 2. Update the STUDENT_ID constant with a valid student._id from your database
- * 3. Run: npx ts-node src/scripts/populateSampleData.ts
+ * 3. Run: npx tsx src/scripts/populateSampleData.ts
  */
 
 // ⚠️ IMPORTANT: Replace this with a valid student._id from your students collection
-const STUDENT_ID = new mongoose.Types.ObjectId('68d440c75a3bf315fb0ddc7b');
+// Run: npx tsx src/scripts/findStudents.ts to get your student ID
+const STUDENT_ID = new mongoose.Types.ObjectId('PASTE_YOUR_STUDENT_ID_HERE');
 
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/madrassati';
+const MONGODB_URI = process.env.MONGO_URI || process.env.MONGODB_URI || 'mongodb://localhost:27017/madrassati';
 
 async function populateData() {
   try {
-    console.log('🔌 Connecting to MongoDB...');
-    await mongoose.connect(MONGODB_URI);
-    console.log('✅ Connected to MongoDB');
+    await connectToDatabase(MONGODB_URI);
 
     // Clear existing data for this student
     console.log('\n🗑️  Clearing existing data...');
@@ -371,51 +375,73 @@ async function populateData() {
 
     // Populate Homework
     console.log('\n📚 Populating homework...');
+    const today = new Date();
     const homework = [
       {
         studentId: STUDENT_ID,
         title: 'Algebra Problems Set',
         subject: 'Mathematics',
         description: 'Complete exercises 1-20 from Chapter 5',
-        assignedDate: new Date('2025-01-10'),
-        dueDate: new Date('2025-10-17'),
-        status: 'active'
+        startDate: new Date(today.getTime() - 3 * 24 * 60 * 60 * 1000), // 3 days ago
+        dueDate: new Date(today.getTime() + 4 * 24 * 60 * 60 * 1000), // 4 days from now
+        durationDays: 7,
+        status: 'active',
+        priority: 'high'
       },
       {
         studentId: STUDENT_ID,
         title: 'Newton\'s Laws Essay',
         subject: 'Physics',
         description: 'Write a 500-word essay on Newton\'s three laws of motion',
-        assignedDate: new Date('2025-01-12'),
-        dueDate: new Date('2025-10-19'),
-        status: 'active'
+        startDate: new Date(today.getTime() - 2 * 24 * 60 * 60 * 1000), // 2 days ago
+        dueDate: new Date(today.getTime() + 5 * 24 * 60 * 60 * 1000), // 5 days from now
+        durationDays: 7,
+        status: 'active',
+        priority: 'medium'
       },
       {
         studentId: STUDENT_ID,
         title: 'Chemical Reactions Lab Report',
         subject: 'Chemistry',
         description: 'Submit lab report for experiment on chemical reactions',
-        assignedDate: new Date('2025-01-08'),
-        dueDate: new Date('2025-10-15'),
-        status: 'completed'
+        startDate: new Date(today.getTime() - 10 * 24 * 60 * 60 * 1000), // 10 days ago
+        dueDate: new Date(today.getTime() - 2 * 24 * 60 * 60 * 1000), // 2 days ago (overdue)
+        durationDays: 8,
+        status: 'overdue',
+        priority: 'high'
       },
       {
         studentId: STUDENT_ID,
         title: 'Shakespeare Analysis',
         subject: 'English',
         description: 'Analyze Act 3 of Hamlet',
-        assignedDate: new Date('2025-01-11'),
-        dueDate: new Date('2025-10-18'),
-        status: 'active'
+        startDate: new Date(today.getTime() - 1 * 24 * 60 * 60 * 1000), // 1 day ago
+        dueDate: new Date(today.getTime() + 6 * 24 * 60 * 60 * 1000), // 6 days from now
+        durationDays: 7,
+        status: 'active',
+        priority: 'medium'
       },
       {
         studentId: STUDENT_ID,
         title: 'Programming Assignment',
         subject: 'Computer Science',
         description: 'Create a simple calculator using Python',
-        assignedDate: new Date('2025-01-13'),
-        dueDate: new Date('2025-10-20'),
-        status: 'upcoming'
+        startDate: new Date(today.getTime() + 2 * 24 * 60 * 60 * 1000), // 2 days from now
+        dueDate: new Date(today.getTime() + 9 * 24 * 60 * 60 * 1000), // 9 days from now
+        durationDays: 7,
+        status: 'upcoming',
+        priority: 'low'
+      },
+      {
+        studentId: STUDENT_ID,
+        title: 'History Essay: World War II',
+        subject: 'History',
+        description: 'Write a detailed essay about the causes and effects of WWII',
+        startDate: new Date(today.getTime() - 4 * 24 * 60 * 60 * 1000), // 4 days ago
+        dueDate: new Date(today.getTime() + 3 * 24 * 60 * 60 * 1000), // 3 days from now
+        durationDays: 7,
+        status: 'active',
+        priority: 'high'
       }
     ];
     await Homework.insertMany(homework);

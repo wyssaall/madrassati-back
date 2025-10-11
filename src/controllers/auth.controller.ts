@@ -2,6 +2,7 @@ import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import mongoose from 'mongoose';
 import User from '../models/User.js';
+import { Request, Response, NextFunction } from 'express';
 
 /**
  * Login controller
@@ -157,6 +158,44 @@ export const register = async (req, res, next) => {
 
   } catch (error) {
     console.error("❌ Registration error:", error);
+    next(error);
+  }
+};
+
+/**
+ * Logout controller
+ * POST /api/auth/logout
+ * Handles user logout and token invalidation
+ */
+export const logout = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    console.log("🚪 Logout request received");
+    
+    // Get user info from token if available
+    const token = req.headers.authorization?.split(' ')[1];
+    
+    if (token) {
+      try {
+        const decoded: any = jwt.verify(token, process.env.JWT_SECRET || 'your_jwt_secret_key');
+        console.log(`👤 User logging out: ${decoded.email} (${decoded.role})`);
+      } catch (err) {
+        console.log("⚠️  Token verification failed during logout (token might be expired)");
+      }
+    }
+    
+    // In a production app, you might want to:
+    // 1. Add token to a blacklist/revocation list
+    // 2. Clear any server-side sessions
+    // 3. Log the logout event to database
+    
+    console.log("✅ Logout successful");
+    
+    res.status(200).json({
+      success: true,
+      message: "Logged out successfully"
+    });
+  } catch (error) {
+    console.error("❌ Logout error:", error);
     next(error);
   }
 };

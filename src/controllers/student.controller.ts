@@ -333,14 +333,21 @@ export const getGrades = async (req: Request, res: Response, next: NextFunction)
     const studentId = student._id;
     const grades = await Grade.find({ studentId: studentId }).sort({ subject: 1 });
 
-    console.log(`✅ Found ${grades.length} grade records for student ${studentId}`);
+    // Calculate overall average
+    const overallAverage = grades.length > 0 
+      ? (grades.reduce((sum, g) => sum + g.finalGrade, 0) / grades.length).toFixed(2)
+      : 0;
+
+    console.log(`✅ Found ${grades.length} grade records for student ${studentId}, Overall Average: ${overallAverage}`);
 
     res.status(200).json({
       success: true,
       data: {
         userId: userId,
         studentId: studentId,
-        grades: grades
+        grades: grades,
+        overallAverage: parseFloat(overallAverage as string),
+        passingGrades: grades.filter(g => g.status === 'Pass').length
       },
       message: "Grades retrieved successfully"
     });
@@ -378,16 +385,52 @@ export const getHomework = async (req: Request, res: Response, next: NextFunctio
     }
 
     const studentId = student._id;
-    const homework = await Homework.find({ studentId: studentId }).sort({ dueDate: 1 });
+    const homeworkList = await Homework.find({ studentId: studentId }).sort({ dueDate: 1 });
 
-    console.log(`✅ Found ${homework.length} homework assignments for student ${studentId}`);
+    // Update status based on dates
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const updatedHomework = homeworkList.map(hw => {
+      const startDate = new Date(hw.startDate);
+      startDate.setHours(0, 0, 0, 0);
+      const dueDate = new Date(hw.dueDate);
+      dueDate.setHours(0, 0, 0, 0);
+
+      let status = hw.status;
+      if (today > dueDate) {
+        status = 'overdue';
+      } else if (today < startDate) {
+        status = 'upcoming';
+      } else {
+        status = 'active';
+      }
+
+      return {
+        ...hw.toObject(),
+        status: status
+      };
+    });
+
+    // Separate by status
+    const active = updatedHomework.filter(hw => hw.status === 'active');
+    const upcoming = updatedHomework.filter(hw => hw.status === 'upcoming');
+    const overdue = updatedHomework.filter(hw => hw.status === 'overdue');
+
+    console.log(`✅ Found ${homeworkList.length} homework assignments for student ${studentId} (Active: ${active.length}, Upcoming: ${upcoming.length}, Overdue: ${overdue.length})`);
 
     res.status(200).json({
       success: true,
       data: {
         userId: userId,
         studentId: studentId,
-        homework: homework
+        homework: updatedHomework,
+        counts: {
+          active: active.length,
+          upcoming: upcoming.length,
+          overdue: overdue.length,
+          total: updatedHomework.length
+        }
       },
       message: "Homework retrieved successfully"
     });
