@@ -6,7 +6,9 @@ import {
   getSchedule,
   getGrades,
   getHomework,
+  getHomeworks,
   getExams,
+  getTests,
   getAnnouncement
 } from '../controllers/student.controller.js';
 
@@ -19,8 +21,9 @@ router.get('/:id/profile', validateObjectId('id'), getProfile);
 router.get('/:id/dashboard', validateObjectId('id'), getDashboard);
 router.get('/:id/schedule', validateObjectId('id'), getSchedule);
 router.get('/:id/grades', validateObjectId('id'), getGrades);
-router.get('/:id/homework', validateObjectId('id'), getHomework);
+router.get('/:id/homework', validateObjectId('id'), getHomeworks);
 router.get('/:id/exams', validateObjectId('id'), getExams);
+router.get('/:id/tests', validateObjectId('id'), getTests);
 router.get('/:id/announcements', validateObjectId('id'), getAnnouncement);
 
 export default router;

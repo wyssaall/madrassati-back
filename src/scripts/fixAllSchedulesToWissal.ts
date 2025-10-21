@@ -96,3 +96,14 @@ async function fixAllSchedulesToWissal() {
 
 fixAllSchedulesToWissal();
 
+
+
+
+
+
+
+
+
+
+
+

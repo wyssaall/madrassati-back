@@ -6,6 +6,7 @@ export interface IStudent extends Document {
   email: string;
   password: string;
   gradeLevel?: string;
+  className?: string; // ✅ new field
   gpa?: number;
   classesToday?: number;
   pendingHomework?: number;
@@ -17,6 +18,10 @@ export interface IStudent extends Document {
   parentPhone?: string;
   enrollmentDate?: Date;
   attendance?: number;
+  attendanceRecords?: Array<{
+    date: string; // YYYY-MM-DD format
+    status: 'Present' | 'Absent';
+  }>;
   createdAt?: Date;
 }
 
@@ -26,6 +31,7 @@ const studentSchema = new Schema<IStudent>({
   email: { type: String, required: true, unique: true },
   password: { type: String, required: true },
   gradeLevel: { type: String },
+  className: { type: String, required: false, default: 'Not Assigned' }, // ✅ new field
   gpa: { type: Number, default: 0 },
   classesToday: { type: Number, default: 0 },
   pendingHomework: { type: Number, default: 0 },
@@ -37,6 +43,10 @@ const studentSchema = new Schema<IStudent>({
   parentPhone: { type: String },
   enrollmentDate: { type: Date, default: Date.now },
   attendance: { type: Number, default: 95 },
+  attendanceRecords: [{
+    date: { type: String, required: true }, // YYYY-MM-DD format
+    status: { type: String, enum: ['Present', 'Absent'], required: true }
+  }],
   createdAt: { type: Date, default: Date.now },
 });
 

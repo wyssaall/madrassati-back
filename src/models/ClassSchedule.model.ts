@@ -2,6 +2,8 @@ import mongoose, { Schema, Document } from "mongoose";
 
 export interface IClassSchedule extends Document {
   studentId: mongoose.Types.ObjectId;
+  teacherId: mongoose.Types.ObjectId;
+  className: string;
   subject: string;
   day: string;
   startTime: string;
@@ -12,6 +14,8 @@ export interface IClassSchedule extends Document {
 
 const classScheduleSchema = new Schema<IClassSchedule>({
   studentId: { type: Schema.Types.ObjectId, ref: "Student", required: true },
+  teacherId: { type: Schema.Types.ObjectId, ref: "Teacher", required: true },
+  className: { type: String, required: true },
   subject: { type: String, required: true },
   day: { type: String, required: true },
   startTime: { type: String, required: true },

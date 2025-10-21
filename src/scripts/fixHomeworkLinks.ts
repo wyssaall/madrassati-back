@@ -1,7 +1,7 @@
 import mongoose from 'mongoose';
 import dotenv from 'dotenv';
-import Student from '../models/Student.model.js';
 import Homework from '../models/Homework.model.js';
+import Student from '../models/Student.model.js';
 import { connectToDatabase } from '../config/db.js';
 
 dotenv.config();
@@ -11,78 +11,93 @@ const MONGODB_URI = process.env.MONGO_URI || process.env.MONGODB_URI || 'mongodb
 async function fixHomeworkLinks() {
   try {
     await connectToDatabase(MONGODB_URI);
-    console.log('');
+    console.log('\n🔧 Fixing homework links...');
 
-    // Find Wissal
-    const wissal = await Student.findOne({ email: 'wissal@example.com' });
+    // Get all students and their classes
+    const students = await Student.find({});
+    console.log(`👥 Found ${students.length} students`);
+
+    // Group students by className
+    const studentsByClass = {};
+    students.forEach(student => {
+      if (!studentsByClass[student.className]) {
+        studentsByClass[student.className] = [];
+      }
+      studentsByClass[student.className].push(student);
+    });
+
+    console.log('\n📊 Students by class:');
+    Object.keys(studentsByClass).forEach(className => {
+      console.log(`  - ${className}: ${studentsByClass[className].length} students`);
+    });
+
+    // Get all homeworks
+    const homeworks = await Homework.find({});
+    console.log(`\n📚 Found ${homeworks.length} homeworks`);
+
+    // Update homework to match existing student classes
+    console.log('\n🔄 Updating homework class names to match existing students...');
     
-    if (!wissal) {
-      console.log('❌ Wissal not found!');
-      return;
-    }
-
-    console.log('👤 Wissal Zabour');
-    console.log(`   ✅ Student ID (correct): ${wissal._id}`);
-    console.log(`   ✅ User ID (for reference): ${wissal.userId}`);
-    console.log('');
-
-    // Get ALL homework
-    const allHomework = await Homework.find({});
-
-    console.log(`📝 Found ${allHomework.length} total homework assignments`);
-    console.log('═'.repeat(80));
-
-    // Fix each homework
-    let updated = 0;
-    for (const hw of allHomework) {
-      console.log(`\n📚 ${hw.title}`);
-      console.log(`   Current studentId: ${hw.studentId}`);
-      
-      if (hw.studentId?.toString() !== wissal._id.toString()) {
-        await Homework.findByIdAndUpdate(hw._id, {
-          $set: { studentId: wissal._id }
-        });
-        console.log(`   ✅ Updated to: ${wissal._id} (Wissal's Student ID)`);
-        updated++;
-      } else {
-        console.log(`   ✅ Already correct`);
+    for (const homework of homeworks) {
+      // Find a class that has students
+      const availableClasses = Object.keys(studentsByClass);
+      if (availableClasses.length > 0) {
+        // Use the first available class or keep existing if it exists
+        const targetClass = availableClasses.includes(homework.className) 
+          ? homework.className 
+          : availableClasses[0];
+        
+        if (homework.className !== targetClass) {
+          await Homework.findByIdAndUpdate(homework._id, { className: targetClass });
+          console.log(`  ✅ Updated "${homework.title}" to class ${targetClass}`);
+        } else {
+          console.log(`  ✓ "${homework.title}" already in correct class ${targetClass}`);
+        }
       }
     }
 
-    console.log('\n' + '═'.repeat(80));
-    console.log(`\n✅ Updated ${updated} homework assignment(s)`);
-
-    // Verify
-    const wissalHomework = await Homework.find({ studentId: wissal._id }).sort({ dueDate: 1 });
-    console.log(`\n📊 Wissal's Homework (${wissalHomework.length}):`);
-    console.log('═'.repeat(80));
+    // Create additional homework for other classes if needed
+    const classesWithStudents = Object.keys(studentsByClass);
+    const existingHomeworkClasses = [...new Set(homeworks.map(hw => hw.className))];
     
-    wissalHomework.forEach((hw, i) => {
-      const today = new Date();
-      const dueDate = new Date(hw.dueDate);
-      const daysUntil = Math.ceil((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-      
-      console.log(`\n${i + 1}. ${hw.title}`);
-      console.log(`   Subject: ${hw.subject}`);
-      console.log(`   Status: ${hw.status}`);
-      console.log(`   Priority: ${hw.priority || 'N/A'}`);
-      console.log(`   Due Date: ${hw.dueDate.toDateString()}`);
-      console.log(`   Days Until Due: ${daysUntil > 0 ? daysUntil : 'Overdue'}`);
-      console.log(`   Description: ${hw.description || 'N/A'}`);
-    });
+    console.log('\n📝 Creating additional homework for classes without any...');
+    for (const className of classesWithStudents) {
+      if (!existingHomeworkClasses.includes(className)) {
+        const newHomework = new Homework({
+          teacherId: new mongoose.Types.ObjectId('68ed2c9bcbb24b8ec436e12f'),
+          className: className,
+          subject: 'Mathematics',
+          title: `${className} Math Assignment`,
+          description: `Complete the assigned math problems for ${className}`,
+          startDate: new Date(),
+          dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days from now
+        });
+        
+        await newHomework.save();
+        console.log(`  ✅ Created homework for ${className}`);
+      }
+    }
 
-    console.log('\n' + '═'.repeat(80));
-    console.log('\n💡 Refresh browser to see all homework!');
-    console.log(`   http://localhost:5173/student/${wissal.userId}/homework`);
+    // Final verification
+    console.log('\n🔍 Final verification...');
+    const finalHomeworks = await Homework.find({});
+    console.log(`📚 Total homeworks after fix: ${finalHomeworks.length}`);
+    
+    for (const className of classesWithStudents) {
+      const classHomeworks = await Homework.find({ className });
+      const classStudents = studentsByClass[className];
+      console.log(`  - ${className}: ${classHomeworks.length} homeworks, ${classStudents.length} students`);
+    }
+
+    console.log('\n✅✅✅ Homework links fixed successfully! ✅✅✅');
 
   } catch (error) {
-    console.error('❌ Error:', error);
+    console.error('❌ Error fixing homework links:', error);
   } finally {
     await mongoose.disconnect();
-    console.log('\n🔌 Disconnected from MongoDB\n');
+    console.log('\n🔌 Disconnected from MongoDB');
     process.exit(0);
   }
 }
 
 fixHomeworkLinks();
-

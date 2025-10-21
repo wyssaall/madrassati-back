@@ -11,6 +11,8 @@ import authRouter from './routes/auth.routes.js';
 import studentRouter from './routes/student.routes.js';
 import parentRouter from './routes/parent.routes.js';
 import teacherRouter from './routes/teacher.routes.js';
+import attendanceRouter from './routes/attendance.routes.js';
+import messageRouter from './routes/message.routes.js';
 import testRouter from './routes/test.routes.js';
 import debugRouter from './routes/debug.routes.js';
 
@@ -20,12 +22,9 @@ import { errorHandler, notFoundHandler } from './middlewares/error.middleware.js
 const app = express();
 
 // Connect to MongoDB
-if (process.env.MONGO_URI) {
-  connectToDatabase(process.env.MONGO_URI);
-} else {
-  console.error('MONGO_URI environment variable is not set');
-  process.exit(1);
-}
+const mongoUri = process.env.MONGO_URI || 'mongodb://localhost:27017/madrassati';
+console.log('🔗 Using MongoDB URI:', mongoUri);
+connectToDatabase(mongoUri);
 
 // Security middleware
 app.use(helmet());
@@ -47,6 +46,12 @@ if (process.env.NODE_ENV === 'development') {
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
+// Debug: Log all requests
+app.use((req, res, next) => {
+  console.log(`📨 Request: ${req.method} ${req.path}`);
+  next();
+});
+
 // Root endpoint
 app.get("/", (req, res) => {
   res.json({ message: "Madrassati API is running 🚀" });
@@ -61,13 +66,21 @@ app.get('/health', (req, res) => {
   });
 });
 
+// Temporary: Bypass auth for teacher routes
+app.use('/api/teacher', (req, res, next) => {
+  console.log('🔥 Teacher route intercepted:', req.method, req.path);
+  next();
+});
+
 // Mount routes
 app.use('/api/auth', authRouter);
 app.use('/api/test', testRouter);
 app.use('/api/debug', debugRouter);
 app.use('/api/student', studentRouter);
-app.use('/parent', parentRouter);
-app.use('/teacher', teacherRouter);
+app.use('/api/parents', parentRouter);
+app.use('/api/teacher', teacherRouter);
+app.use('/api/attendance', attendanceRouter);
+app.use('/api/messages', messageRouter);
 
 // 404 handler for undefined routes
 app.use(notFoundHandler);

@@ -16,29 +16,35 @@ import Announcement from "../models/Announcement.model.js";
  */
 export const getProfile = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const userId = req.params.id;
-    console.log("👤 Fetching profile for userId:", userId);
+    const id = req.params.id;
+    console.log("👤 Fetching profile for ID:", id);
 
-    if (!mongoose.Types.ObjectId.isValid(userId)) {
+    if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({
         success: false,
-        message: "Invalid user ID format"
+        message: "Invalid ID format"
       });
     }
 
-    // Find student by userId and populate user data
-    const student = await Student.findOne({ userId: userId }).select('-password').populate('userId');
+    // Try to find student by userId first, then by _id (student document ID)
+    let student = await Student.findOne({ userId: id }).select('-password').populate('userId');
     
     if (!student) {
-      console.log("❌ Student not found for userId:", userId);
+      // If not found by userId, try by student document _id
+      student = await Student.findById(id).select('-password').populate('userId');
+    }
+    
+    if (!student) {
+      console.log("❌ Student not found for ID:", id);
       return res.status(404).json({
         success: false,
         message: "Student not found"
       });
     }
 
+    console.log("✅ Student found:", student.name, "(studentId:", student._id.toString() + ")");
     // Get user data (if populated)
-    const user: any = student.userId || await User.findById(userId);
+    const user: any = student.userId || await User.findById(id);
 
     // Get class count from ClassSchedule using student._id
     const classCount = await ClassSchedule.countDocuments({ studentId: student._id });
@@ -53,9 +59,9 @@ export const getProfile = async (req: Request, res: Response, next: NextFunction
 
     const profile = {
       id: student._id,
-      userId: userId,
+      userId: id,
       name: student.name || user?.name || 'N/A',
-      class: student.gradeLevel || 'N/A',
+      class: student.className || 'Not Assigned',
       email: student.email || user?.email || 'N/A',
       phone: student.phone || user?.phone || 'N/A',
       address: student.address || 'N/A',
@@ -68,6 +74,7 @@ export const getProfile = async (req: Request, res: Response, next: NextFunction
       totalCredits: totalCredits,
       profilePicture: student.profilePicture || null,
       gradeLevel: student.gradeLevel,
+      className: student.className,
       createdAt: student.createdAt
     };
 
@@ -92,28 +99,34 @@ export const getProfile = async (req: Request, res: Response, next: NextFunction
  */
 export const getDashboard = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const userId = req.params.id;
-    console.log("📊 Fetching dashboard data for userId:", userId);
+    const id = req.params.id;
+    console.log("📊 Fetching dashboard data for ID:", id);
 
-    if (!mongoose.Types.ObjectId.isValid(userId)) {
+    if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({
         success: false,
-        message: "Invalid user ID format"
+        message: "Invalid ID format"
       });
     }
 
-    // Find student by userId
-    const student = await Student.findOne({ userId: userId }).select('-password');
+    // Try to find student by userId first, then by _id (student document ID)
+    let student = await Student.findOne({ userId: id }).select('-password');
+    
     if (!student) {
-      console.log("❌ Student not found for userId:", userId);
+      // If not found by userId, try by student document _id
+      student = await Student.findById(id).select('-password');
+    }
+    
+    if (!student) {
+      console.log("❌ Student not found for ID:", id);
       return res.status(404).json({
         success: false,
         message: "Student not found"
       });
     }
 
+    console.log("✅ Student found:", student.name, "(studentId:", student._id.toString() + ")");
     const studentId = student._id;
-    console.log(`✅ Found student with ID: ${studentId} for userId: ${userId}`);
 
     // Fetch upcoming class (next class today or tomorrow)
     const today = new Date();
@@ -185,7 +198,7 @@ export const getDashboard = async (req: Request, res: Response, next: NextFuncti
     const dashboardData = {
       student: {
         id: student._id,
-        userId: userId,
+        userId: id,
         name: student.name,
         gradeLevel: student.gradeLevel,
         gpa: student.gpa,
@@ -240,28 +253,40 @@ export const getDashboard = async (req: Request, res: Response, next: NextFuncti
  */
 export const getSchedule = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const userId = req.params.id;
-    console.log("📅 Fetching schedule for userId:", userId);
+    const id = req.params.id;
+    console.log("📅 Fetching schedule for ID:", id);
 
-    if (!mongoose.Types.ObjectId.isValid(userId)) {
+    if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({
         success: false,
-        message: "Invalid user ID format"
+        message: "Invalid ID format"
       });
     }
 
-    // Find student by userId
-    const student = await Student.findOne({ userId: userId });
+    // Try to find student by userId first, then by _id (student document ID)
+    let student = await Student.findOne({ userId: id });
+    
     if (!student) {
-      console.log("❌ Student not found for userId:", userId);
+      // If not found by userId, try by student document _id
+      student = await Student.findById(id);
+    }
+    
+    if (!student) {
+      console.log("❌ Student not found for ID:", id);
       return res.status(404).json({
         success: false,
         message: "Student not found"
       });
     }
 
+    console.log("✅ Student found:", student.name, "(studentId:", student._id.toString() + ")");
     const studentId = student._id;
-    const scheduleItems = await ClassSchedule.find({ studentId: studentId }).sort({ startTime: 1 });
+    const className = student.className;
+    
+    console.log(`📚 Fetching schedule for class: ${className}`);
+    const scheduleItems = await ClassSchedule.find({ className: className })
+      .populate('teacherId', 'fullName subject')
+      .sort({ startTime: 1 });
 
     // Group by day of the week
     const daysOrder = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
@@ -281,7 +306,11 @@ export const getSchedule = async (req: Request, res: Response, next: NextFunctio
           startTime: item.startTime,
           endTime: item.endTime,
           room: item.room,
-          status: item.status
+          status: item.status,
+          teacher: item.teacherId ? {
+            name: (item.teacherId as any).fullName,
+            subject: (item.teacherId as any).subject
+          } : null
         });
       }
     });
@@ -291,7 +320,7 @@ export const getSchedule = async (req: Request, res: Response, next: NextFunctio
     res.status(200).json({
       success: true,
       data: {
-        userId: userId,
+        userId: id,
         studentId: studentId,
         schedule: groupedSchedule
       },
@@ -310,26 +339,33 @@ export const getSchedule = async (req: Request, res: Response, next: NextFunctio
  */
 export const getGrades = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const userId = req.params.id;
-    console.log("📊 Fetching grades for userId:", userId);
+    const id = req.params.id;
+    console.log("📊 Fetching grades for ID:", id);
 
-    if (!mongoose.Types.ObjectId.isValid(userId)) {
+    if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({
         success: false,
-        message: "Invalid user ID format"
+        message: "Invalid ID format"
       });
     }
 
-    // Find student by userId
-    const student = await Student.findOne({ userId: userId });
+    // Try to find student by userId first, then by _id (student document ID)
+    let student = await Student.findOne({ userId: id });
+    
     if (!student) {
-      console.log("❌ Student not found for userId:", userId);
+      // If not found by userId, try by student document _id
+      student = await Student.findById(id);
+    }
+    
+    if (!student) {
+      console.log("❌ Student not found for ID:", id);
       return res.status(404).json({
         success: false,
         message: "Student not found"
       });
     }
 
+    console.log("✅ Student found:", student.name, "(studentId:", student._id.toString() + ")");
     const studentId = student._id;
     const grades = await Grade.find({ studentId: studentId }).sort({ subject: 1 });
 
@@ -343,7 +379,7 @@ export const getGrades = async (req: Request, res: Response, next: NextFunction)
     res.status(200).json({
       success: true,
       data: {
-        userId: userId,
+        userId: id,
         studentId: studentId,
         grades: grades,
         overallAverage: parseFloat(overallAverage as string),
@@ -364,26 +400,33 @@ export const getGrades = async (req: Request, res: Response, next: NextFunction)
  */
 export const getHomework = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const userId = req.params.id;
-    console.log("📝 Fetching homework for userId:", userId);
+    const id = req.params.id;
+    console.log("📝 Fetching homework for ID:", id);
 
-    if (!mongoose.Types.ObjectId.isValid(userId)) {
+    if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({
         success: false,
-        message: "Invalid user ID format"
+        message: "Invalid ID format"
       });
     }
 
-    // Find student by userId
-    const student = await Student.findOne({ userId: userId });
+    // Try to find student by userId first, then by _id (student document ID)
+    let student = await Student.findOne({ userId: id });
+    
     if (!student) {
-      console.log("❌ Student not found for userId:", userId);
+      // If not found by userId, try by student document _id
+      student = await Student.findById(id);
+    }
+    
+    if (!student) {
+      console.log("❌ Student not found for ID:", id);
       return res.status(404).json({
         success: false,
         message: "Student not found"
       });
     }
 
+    console.log("✅ Student found:", student.name, "(studentId:", student._id.toString() + ")");
     const studentId = student._id;
     const homeworkList = await Homework.find({ studentId: studentId }).sort({ dueDate: 1 });
 
@@ -422,7 +465,7 @@ export const getHomework = async (req: Request, res: Response, next: NextFunctio
     res.status(200).json({
       success: true,
       data: {
-        userId: userId,
+        userId: id,
         studentId: studentId,
         homework: updatedHomework,
         counts: {
@@ -448,32 +491,39 @@ export const getHomework = async (req: Request, res: Response, next: NextFunctio
  */
 export const getExams = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const userId = req.params.id;
-    console.log("📋 Fetching exams and tests for userId:", userId);
+    const id = req.params.id;
+    console.log("📋 Fetching exams and tests for ID:", id);
 
-    if (!mongoose.Types.ObjectId.isValid(userId)) {
+    if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({
         success: false,
-        message: "Invalid user ID format"
+        message: "Invalid ID format"
       });
     }
 
-    // Find student by userId
-    const student = await Student.findOne({ userId: userId });
+    // Try to find student by userId first, then by _id (student document ID)
+    let student = await Student.findOne({ userId: id });
+    
     if (!student) {
-      console.log("❌ Student not found for userId:", userId);
+      // If not found by userId, try by student document _id
+      student = await Student.findById(id);
+    }
+    
+    if (!student) {
+      console.log("❌ Student not found for ID:", id);
       return res.status(404).json({
         success: false,
         message: "Student not found"
       });
     }
 
+    console.log("✅ Student found:", student.name, "(studentId:", student._id.toString() + ")");
     const studentId = student._id;
 
-    // Fetch all exams (final, exam) and tests (test, quiz, midterm)
+    // Fetch all exams and tests for the student's class
     const [exams, tests] = await Promise.all([
-      Exam.find({ studentId: studentId }).sort({ date: 1 }),
-      Test.find({ studentId: studentId }).sort({ date: 1 })
+      Exam.find({ className: student.className }).sort({ date: 1 }),
+      Test.find({ className: student.className }).sort({ date: 1 })
     ]);
 
     console.log(`✅ Found ${exams.length} exams and ${tests.length} tests for student ${studentId}`);
@@ -481,7 +531,7 @@ export const getExams = async (req: Request, res: Response, next: NextFunction) 
     res.status(200).json({
       success: true,
       data: {
-        userId: userId,
+        userId: id,
         studentId: studentId,
         exams: exams,
         tests: tests
@@ -495,41 +545,133 @@ export const getExams = async (req: Request, res: Response, next: NextFunction) 
 };
 
 /**
- * Get student announcements
- * GET /api/student/:id/announcements
- * :id is the userId from the users collection
+ * Get student tests
+ * GET /api/student/:id/tests
  */
-export const getAnnouncement = async (req: Request, res: Response, next: NextFunction) => {
+export const getTests = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const userId = req.params.id;
-    console.log("📢 Fetching announcements for userId:", userId);
+    const id = req.params.id;
+    console.log("📋 Fetching tests for ID:", id);
 
-    if (!mongoose.Types.ObjectId.isValid(userId)) {
+    if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({
         success: false,
-        message: "Invalid user ID format"
+        message: "Invalid ID format"
       });
     }
 
-    // Find student by userId (to verify student exists)
-    const student = await Student.findOne({ userId: userId });
+    // Try to find student by userId first, then by _id (student document ID)
+    let student = await Student.findOne({ userId: id });
+    
     if (!student) {
-      console.log("❌ Student not found for userId:", userId);
+      // If not found by userId, try by student document _id
+      student = await Student.findById(id);
+    }
+    
+    if (!student) {
+      console.log("❌ Student not found for ID:", id);
       return res.status(404).json({
         success: false,
         message: "Student not found"
       });
     }
 
+    console.log("✅ Student found:", student.name, "(studentId:", student._id.toString() + ")");
     const studentId = student._id;
-    const announcements = await Announcement.find({}).sort({ date: -1 });
+
+    // Fetch all tests for the student's class
+    const tests = await Test.find({ className: student.className })
+      .populate('teacherId', 'fullName email subject')
+      .sort({ date: 1 })
+      .lean();
+
+    console.log(`✅ Found ${tests.length} tests for student ${studentId}`);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        userId: id,
+        studentId: studentId,
+        studentName: student.name,
+        className: student.className,
+        tests: tests.map(test => ({
+          id: test._id,
+          testId: test.testId,
+          className: test.className,
+          subject: test.subject,
+          title: test.title,
+          type: test.type,
+          date: test.date,
+          startTime: test.startTime,
+          endTime: test.endTime,
+          room: test.room,
+          durationMinutes: test.durationMinutes,
+          teacher: test.teacherId,
+          createdAt: test.createdAt,
+          updatedAt: test.updatedAt
+        })),
+        totalTests: tests.length
+      },
+      message: "Tests retrieved successfully"
+    });
+  } catch (error) {
+    console.error("❌ Error fetching tests:", error);
+    next(error);
+  }
+};
+
+/**
+ * Get student announcements
+ * GET /api/student/:id/announcements
+ * :id is the userId from the users collection
+ */
+export const getAnnouncement = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const id = req.params.id;
+    console.log("📢 Fetching announcements for ID:", id);
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid ID format"
+      });
+    }
+
+    // Try to find student by userId first, then by _id (student document ID)
+    let student = await Student.findOne({ userId: id });
+    
+    if (!student) {
+      // If not found by userId, try by student document _id
+      student = await Student.findById(id);
+    }
+    
+    if (!student) {
+      console.log("❌ Student not found for ID:", id);
+      return res.status(404).json({
+        success: false,
+        message: "Student not found"
+      });
+    }
+
+    console.log("✅ Student found:", student.name, "(studentId:", student._id.toString() + ")");
+    const studentId = student._id;
+    
+    // Fetch announcements for the student's class (supports legacy className and new targetClasses)
+    const announcements = await Announcement.find({
+      $or: [
+        { className: student.className }, // legacy
+        { targetClasses: { $in: [student.className] } }, // new multi-class
+        { className: { $exists: false } }, // general
+        { className: null } // general
+      ]
+    }).sort({ date: -1 });
 
     console.log(`✅ Found ${announcements.length} announcements for student ${studentId}`);
 
     res.status(200).json({
       success: true,
       data: {
-        userId: userId,
+        userId: id,
         studentId: studentId,
         announcements: announcements
       },
@@ -537,6 +679,71 @@ export const getAnnouncement = async (req: Request, res: Response, next: NextFun
     });
   } catch (error) {
     console.error("❌ Error fetching announcements:", error);
+    next(error);
+  }
+};
+
+/**
+ * Get homeworks for a student
+ * GET /api/student/:id/homeworks
+ * :id is the userId from the users collection
+ */
+export const getHomeworks = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const id = req.params.id;
+    console.log("📚 Fetching homeworks for student ID:", id);
+    
+    // Find the student by userId first, then by _id
+    let student = await Student.findOne({ userId: id }).lean();
+    
+    if (!student && mongoose.Types.ObjectId.isValid(id)) {
+      student = await Student.findById(id).lean();
+    }
+    
+    if (!student) {
+      return res.status(404).json({
+        success: false,
+        error: "Student not found"
+      });
+    }
+
+    // Fetch homeworks for the student's class and subjects
+    const homeworks = await Homework.find({ 
+      className: student.className 
+    })
+      .populate('teacherId', 'fullName email subject')
+      .lean()
+      .sort({ dueDate: 1 });
+
+
+    res.status(200).json({
+      success: true,
+      data: {
+        studentId: student._id,
+        studentName: student.name,
+        className: student.className,
+        homeworks: homeworks.map(homework => ({
+          id: homework._id,
+          homeworkId: homework.homeworkId,
+          className: homework.className,
+          subject: homework.subject,
+          title: homework.title,
+          description: homework.description,
+          startDate: homework.startDate,
+          dueDate: homework.dueDate,
+          status: homework.status,
+          durationDays: homework.durationDays,
+          daysLeft: homework.daysLeft,
+          teacher: homework.teacherId,
+          createdAt: homework.createdAt,
+          updatedAt: homework.updatedAt
+        })),
+        totalHomeworks: homeworks.length
+      },
+      message: "Homeworks retrieved successfully"
+    });
+  } catch (error) {
+    console.error("❌ Error fetching homeworks:", error);
     next(error);
   }
 };
