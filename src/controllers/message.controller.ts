@@ -47,22 +47,22 @@ export const getConversations = async (req: Request, res: Response, next: NextFu
         let childClass = 'Class';
         
         try {
-          // Try to find the other user (teacher or parent)
-          let otherUser = await Teacher.findById(otherUserId);
-          if (otherUser) {
-            otherUserName = otherUser.fullName;
+          // Try to find the other user (teacher or parent) using .lean() for type safety
+          const otherUserTeacher = await Teacher.findById(otherUserId).lean();
+          if (otherUserTeacher) {
+            otherUserName = otherUserTeacher.fullName;
           } else {
-            otherUser = await Parent.findById(otherUserId);
-            if (otherUser) {
-              otherUserName = otherUser.name;
+            const otherUserParent = await Parent.findById(otherUserId).lean();
+            if (otherUserParent) {
+              otherUserName = otherUserParent.name;
             }
           }
           
-          // Try to find the child
-          const child = await Student.findById(childId);
+          // Try to find the child using .lean() for type safety
+          const child = await Student.findById(childId).lean();
           if (child) {
             childName = child.name;
-            childClass = child.className;
+            childClass = child.className || 'Not Assigned';
           }
         } catch (error) {
           console.log('⚠️ Error fetching user/child details:', error.message);
@@ -129,25 +129,25 @@ export const getConversationHistory = async (req: Request, res: Response, next: 
       let receiverName = 'Unknown';
       
       try {
-        // Get sender name
-        let sender = await Teacher.findById(message.senderId);
-        if (sender) {
-          senderName = sender.fullName;
+        // Get sender name using .lean() for type safety
+        const senderTeacher = await Teacher.findById(message.senderId).lean();
+        if (senderTeacher) {
+          senderName = senderTeacher.fullName;
         } else {
-          sender = await Parent.findById(message.senderId);
-          if (sender) {
-            senderName = sender.name;
+          const senderParent = await Parent.findById(message.senderId).lean();
+          if (senderParent) {
+            senderName = senderParent.name;
           }
         }
         
-        // Get receiver name
-        let receiver = await Teacher.findById(message.receiverId);
-        if (receiver) {
-          receiverName = receiver.fullName;
+        // Get receiver name using .lean() for type safety
+        const receiverTeacher = await Teacher.findById(message.receiverId).lean();
+        if (receiverTeacher) {
+          receiverName = receiverTeacher.fullName;
         } else {
-          receiver = await Parent.findById(message.receiverId);
-          if (receiver) {
-            receiverName = receiver.name;
+          const receiverParent = await Parent.findById(message.receiverId).lean();
+          if (receiverParent) {
+            receiverName = receiverParent.name;
           }
         }
       } catch (error) {
@@ -268,15 +268,15 @@ export const getContacts = async (req: Request, res: Response, next: NextFunctio
     
     console.log(`👥 Fetching contacts for user: ${userId}`);
 
-    // Check if user is a teacher or parent to return appropriate contacts
-    let teacher = await Teacher.findById(userId);
+    // Check if user is a teacher or parent to return appropriate contacts using .lean() for type safety
+    let teacher = await Teacher.findById(userId).lean();
     if (!teacher) {
-      teacher = await Teacher.findOne({ userId });
+      teacher = await Teacher.findOne({ userId }).lean();
     }
     
-    let parent = await Parent.findById(userId);
+    let parent = await Parent.findById(userId).lean();
     if (!parent) {
-      parent = await Parent.findOne({ userId });
+      parent = await Parent.findOne({ userId }).lean();
     }
 
     let contacts = [];
@@ -289,7 +289,7 @@ export const getContacts = async (req: Request, res: Response, next: NextFunctio
         userId: parent._id,
         name: parent.name,
         role: 'Parent',
-        childId: parent.children[0] || '68f3b5470f4e668aa6c8a1ac',
+        childId: parent.children?.[0] || '68f3b5470f4e668aa6c8a1ac',
         childName: 'Wissal ZABOUR',
         childClass: '4AM1'
       }));
@@ -304,7 +304,7 @@ export const getContacts = async (req: Request, res: Response, next: NextFunctio
         subject: teacher.subject,
         childId: '68f3b5470f4e668aa6c8a1ac',
         childName: 'Wissal ZABOUR',
-        childClass: teacher.classes[0] || 'General'
+        childClass: teacher.classes?.[0] || 'General'
       }));
     } else {
       console.log(`❌ User ${userId} not found as teacher or parent`);
