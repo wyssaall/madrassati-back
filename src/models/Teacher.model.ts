@@ -47,3 +47,4 @@ export const Teacher = mongoose.model<ITeacher>("Teacher", TeacherSchema);
 
 
 
+
